@@ -1,0 +1,153 @@
+Parameters:
+  # Paramenters are entirely optional.
+  # but using them will make your cloudformation templates more reusable
+  # use them for things that may change over time, such as instance type,
+  # VPCs and so on.
+  EnvironmentName:
+    Type: String
+  InstanceType:
+    Type: String
+  AMI:
+    Type: String
+
+Resources:
+  # instace profile contains the IAM Role name(s) that we want to associate to our auto scaling EC2 Servers
+  # never give too much permissions to your EC2 instances! if they get hacked, the permissions get hacked also!
+  # in this example, I create a Role called UdacityS3ReadOnlyC2 and just give it a policy of S3 Read-Only Access
+  
+ 
+
+
+  # EC2 Instance
+  UdagramEC2LaunchConfig: 
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref AMI
+      SecurityGroups: 
+        - !Sub ${EnvironmentName}SGEC2
+      InstanceType: 
+        !Ref InstanceType
+      BlockDeviceMappings: 
+        - DeviceName: /dev/sda1
+          Ebs: 
+            VolumeSize: '10'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo apt-get update -y
+          sudo apt-get install unzip awscli -y
+          sudo apt-get install apache2 -y
+          sudo aws s3 cp s3://udagram-class/index.html /var/www/html 
+          sudo systemctl start apache2.service
+
+  InstanceS3Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: S3Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Action:
+              - s3:*
+            Resource:
+              - arn:aws:s3:::udagram-class/*
+              - arn:aws:s3:::udagram-class
+      Roles:
+        -
+          !Ref Ec2InstanceRole
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      InstanceProfileName: ec2-instance-profile
+      Path: /
+      Roles: 
+       - !Ref Ec2InstanceRole
+  
+  Ec2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ec2-instance-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+
+
+  WebAppGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - Fn::ImportValue: 
+            !Sub ${EnvironmentName}PRIVNETS
+      LaunchConfigurationName: !Ref UdagramEC2LaunchConfig
+      MinSize: '2'
+      MaxSize: '4'
+      TargetGroupARNs: !Ref WebAppTargetGroup
+
+  WebAppLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - Fn::ImportValue: !Sub ${EnvironmentName}PubSub1
+        - Fn::ImportValue: !Sub ${EnvironmentName}PubSub1
+      SecurityGroups: !Sub ${EnvironmentName}SGLB
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: WebAppTargetGroup
+      LoadBalancerArn: !Ref WebAppLB
+      Port: '80'
+      Protocol: HTTP
+
+  ALBListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref WebAppTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values: [/]
+      ListenerArn: !Ref 'Listener'
+      Priority: 1
+
+  WebAppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 8
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: 
+        Fn::ImportValue:
+          !Sub ${EnvironmentName}MainVPC
+  
+
+
+  
+Outputs: 
+  
+  UdagramLBOutput:
+    Description: The URL of the Load Balancer
+    Value: !Sub http://${WebAppLB.DNSName}
+    Export:
+      Name: !Sub ${EnvironmentName}LBDNSName
+  

@@ -1,0 +1,42 @@
+[
+	{
+	  "ParameterKey": "PublicSubnetOne",
+	  "ParameterValue": "subnet-public-1"
+	},
+	{
+	  "ParameterKey": "PublicSubnetTwo",
+	  "ParameterValue": "subnet-public-2"
+	},
+	{
+	  "ParameterKey": "PrivateSubnetOne",
+	  "ParameterValue": "subnet-private-1"
+	},
+	{
+	  "ParameterKey": "PrivateSubnetTwo",
+	  "ParameterValue": "subnet-private-2"
+	},
+	{
+		"ParameterKey": "VPCCIDR",
+		"ParameterValue": "10.0.0.0/16"
+	  }, 
+	  {
+		"ParameterKey": "PubSubnet1CIDR",
+		"ParameterValue": "10.0.243.0/24"
+	  }, 
+	  {
+		"ParameterKey": "PubSubnet2CIDR",
+		"ParameterValue": "10.0.244.0/24"
+	  },
+	  {
+		"ParameterKey": "PrivSubnet1CIDR",
+		"ParameterValue": "10.0.241.0/24"
+	  },
+	  {
+		"ParameterKey": "PrivSubnet2CIDR",
+		"ParameterValue": "10.0.242.0/24"
+	  },
+	  {
+		  "ParameterKey": "EnvironmentName",
+		  "ParameterValue": "finalProjectAlx"
+	  }
+]
