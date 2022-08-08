@@ -61,7 +61,7 @@ Resources:
     Properties:
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
       CidrBlock: !Ref PrivSubnet1CIDR
-      MapPublicIpOnLaunch: false
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: "Private Subnet Availability Zone 1"
@@ -84,7 +84,7 @@ Resources:
     Properties:
       AvailabilityZone: !Select [ 1, !GetAZs '' ]
       CidrBlock: !Ref PrivSubnet2CIDR
-      MapPublicIpOnLaunch: false
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: "Private Subnet Availability Zone 2"

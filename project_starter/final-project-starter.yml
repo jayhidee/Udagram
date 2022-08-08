@@ -14,23 +14,21 @@ Resources:
   # instace profile contains the IAM Role name(s) that we want to associate to our auto scaling EC2 Servers
   # never give too much permissions to your EC2 instances! if they get hacked, the permissions get hacked also!
   # in this example, I create a Role called UdacityS3ReadOnlyC2 and just give it a policy of S3 Read-Only Access
-  
- 
-
-
   # EC2 Instance
   UdagramEC2LaunchConfig: 
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
       ImageId: !Ref AMI
       SecurityGroups: 
-        - !Sub ${EnvironmentName}SGEC2
+        - Fn::ImportValue:
+            !Sub ${EnvironmentName}SGLB
       InstanceType: 
         !Ref InstanceType
       BlockDeviceMappings: 
         - DeviceName: /dev/sda1
           Ebs: 
             VolumeSize: '10'
+      KeyName: udacity001
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
@@ -82,7 +80,24 @@ Resources:
               - sts:AssumeRole
       Path: /
 
+# Target Group
+  WebAppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 8
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: 
+        Fn::ImportValue:
+          !Sub ${EnvironmentName}MainVPC
+  
 
+# Auto Scalling Group
   WebAppGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -92,16 +107,10 @@ Resources:
       LaunchConfigurationName: !Ref UdagramEC2LaunchConfig
       MinSize: '2'
       MaxSize: '4'
-      TargetGroupARNs: !Ref WebAppTargetGroup
+      TargetGroupARNs: 
+        - Ref: WebAppTargetGroup
 
-  WebAppLB:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Subnets:
-        - Fn::ImportValue: !Sub ${EnvironmentName}PubSub1
-        - Fn::ImportValue: !Sub ${EnvironmentName}PubSub1
-      SecurityGroups: !Sub ${EnvironmentName}SGLB
-
+  # Listerners 
   Listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -125,21 +134,17 @@ Resources:
       ListenerArn: !Ref 'Listener'
       Priority: 1
 
-  WebAppTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+# Load Balancer
+  WebAppLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      HealthCheckIntervalSeconds: 10
-      HealthCheckPath: /
-      HealthCheckProtocol: HTTP
-      HealthCheckTimeoutSeconds: 8
-      HealthyThresholdCount: 2
-      Port: 80
-      Protocol: HTTP
-      UnhealthyThresholdCount: 5
-      VpcId: 
-        Fn::ImportValue:
-          !Sub ${EnvironmentName}MainVPC
-  
+      Subnets:
+        - Fn::ImportValue: !Sub ${EnvironmentName}PubSub1
+        - Fn::ImportValue: !Sub ${EnvironmentName}PubSub2
+      SecurityGroups:
+        - Fn::ImportValue:
+           !Sub ${EnvironmentName}SGLB
+
 
 
   
@@ -150,4 +155,5 @@ Outputs:
     Value: !Sub http://${WebAppLB.DNSName}
     Export:
       Name: !Sub ${EnvironmentName}LBDNSName
+
   
